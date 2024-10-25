@@ -126,43 +126,26 @@ reddit = asyncpraw.Reddit(
     user_agent=user_agent,
 ) 
 
-async def log_error(channel, error_message):
-    if channel:
-        await channel.send(f"An error occurred: {error_message}")
-        
-@bot.event
-async def on_command_error(interaction, error):
-    error_channel = bot.get_channel(1292021826414837770)
 
-    if isinstance(error, commands.CommandNotFound):
-        await interaction.send("That command does not exist.")
-    elif isinstance(error, commands.MissingRequiredArgument):
-        await interaction.send("You missed a required argument.")
-    elif isinstance(error, commands.CommandOnCooldown):
-        await interaction.send(
-            f"Command is on cooldown. Try again in {error.retry_after:.2f} seconds.",
-            ephemeral=True,
-        )
+async def handle_error(interaction: discord.Interaction, error, log_error_id):
+    embed = discord.Embed(title="An error occurred", color=discord.Color.red())
+    embed.add_field(name="Error", value=str(error), inline=False)
+    embed.add_field(name="ID", value=log_error_id, inline=False)
+    
+    storage_log("error", str(error))
+    
+    if interaction.response.is_done():
+        await interaction.followup.send(embed=embed, ephemeral=True)
     else:
-        await log_error(error_channel, str(error))
+        await interaction.response.send_message(embed=embed, ephemeral=True)
 
 @bot.event
 async def on_application_command_error(interaction: discord.Interaction, error):
-    error_channel = bot.get_channel(1292021826414837770)
+    handle_error(interaction, error, log_error_id=log_id_counter)
 
-    if isinstance(error, discord.app_commands.errors.CommandInvokeError):
-        await log_error(error_channel, str(error.original))
-    elif isinstance(error, discord.app_commands.errors.MissingPermissions):
-        await interaction.response.send_message(
-            "You do not have permission to use this command.", ephemeral=True
-        )
-    elif isinstance(error, discord.app_commands.errors.CommandOnCooldown):
-        await interaction.response.send_message(
-            f"Command is on cooldown. Try again in {error.retry_after:.2f} seconds.",
-            ephemeral=True,
-        )
-    else:
-        await log_error(error_channel, str(error))
+@bot.event
+async def on_command_error(interaction: discord.Interaction, error):
+    handle_error(interaction, error, log_error_id=log_id_counter)
 
 class ReplyModal(discord.ui.Modal):
     def __init__(self, user, message_id, reply_author):
@@ -287,7 +270,6 @@ async def on_ready():
     status_manager = StatusManager(bot)
     bot.loop.create_task(status_manager.change_status())
 
-
 @bot.tree.command(name="error", description="Allows you to view a certain error.")
 async def view_error(interaction: discord.Interaction, error_id: int):
     await interaction.response.defer()
@@ -307,18 +289,6 @@ async def view_error(interaction: discord.Interaction, error_id: int):
                 return
 
     await interaction.followup.send(f"No error found with ID {error_id}")
-
-async def handle_error(interaction: discord.Interaction, error, log_error_id):
-    embed = discord.Embed(title="An error occurred", color=discord.Color.red())
-    embed.add_field(name="Error", value=str(error), inline=False)
-    embed.add_field(name="ID", value=log_error_id, inline=False)
-    
-    storage_log("error", str(error))
-    
-    if interaction.response.is_done():
-        await interaction.followup.send(embed=embed, ephemeral=True)
-    else:
-        await interaction.response.send_message(embed=embed, ephemeral=True)
 
 @app_commands.allowed_installs(guilds=True, users=True)
 @app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
