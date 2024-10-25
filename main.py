@@ -532,13 +532,15 @@ async def mlevel(interaction: discord.Interaction, current_level: int, current_e
     await interaction.followup.send(embed=embed)
 
 """
+<<<<<<< Updated upstream
+=======
 GEOMETRY DASH COMMANDS
 """
 class GeometryDashCommandGroup(app_commands.Group):
     def __init__(self):
         super().__init__(name="gd", description="Geometry Dash related commands")
 
-    @app_commands.command(name="gdprofile", description="Fetch a Geometry Dash profile.")
+    @app_commands.command(name="profile", description="Fetch a Geometry Dash profile.")
     @app_commands.describe(username="The Geometry Dash username to fetch.")
     async def gdprofile(self, interaction: discord.Interaction, username: str):
         await interaction.response.defer()
@@ -579,19 +581,19 @@ class GeometryDashCommandGroup(app_commands.Group):
                         value=(
                             f"**Total Beaten**: {data['demons']}\n"
                             f"**Classic Demons**:\n"
-                            f" - <:EasyDemon:1299319586197471253> Easy: {data['classicDemonsCompleted']['easy']}\n"
-                            f" - <:MediumDemon:1299319602936942635> Medium: {data['classicDemonsCompleted']['medium']}\n"
-                            f" - <:HardDemon:1299319619571552318> Hard: {data['classicDemonsCompleted']['hard']}\n"
-                            f" - <:InsaneDemon:1299319639959928872> Insane: {data['classicDemonsCompleted']['insane']}\n"
-                            f" - <:ExtremeDemon:1299319662995046420> Extreme: {data['classicDemonsCompleted']['extreme']}\n"
-                            f" - <:WeeklyDemon:1299320499146330152> Weekly: {data['classicDemonsCompleted']['weekly']}\n"
-                            f" - <:Gauntlet:1299320799458627626> Gauntlet: {data['classicDemonsCompleted']['gauntlet']}\n\n"
+                            f"<:EasyDemon:1299319586197471253> Easy: {data['classicDemonsCompleted']['easy']}\n"
+                            f"<:MediumDemon:1299319602936942635> Medium: {data['classicDemonsCompleted']['medium']}\n"
+                            f"<:HardDemon:1299319619571552318> Hard: {data['classicDemonsCompleted']['hard']}\n"
+                            f"<:InsaneDemon:1299319639959928872> Insane: {data['classicDemonsCompleted']['insane']}\n"
+                            f"<:ExtremeDemon:1299319662995046420> Extreme: {data['classicDemonsCompleted']['extreme']}\n"
+                            f"<:WeeklyDemon:1299320499146330152> Weekly: {data['classicDemonsCompleted']['weekly']}\n"
+                            f"<:Gauntlet:1299320799458627626> Gauntlet: {data['classicDemonsCompleted']['gauntlet']}\n\n"
                             f"**Platformer Demons**:\n"
-                            f" - <:EasyDemon:1299319586197471253> Easy: {data['platformerDemonsCompleted']['easy']}\n"
-                            f" - <:MediumDemon:1299319602936942635> Medium: {data['platformerDemonsCompleted']['medium']}\n"
-                            f" - <:HardDemon:1299319619571552318> Hard: {data['platformerDemonsCompleted']['hard']}\n"
-                            f" - <:ExtremeDemon:1299319662995046420> Insane: {data['platformerDemonsCompleted']['insane']}\n"
-                            f" - <:ExtremeDemon:1299319662995046420> Extreme: {data['platformerDemonsCompleted']['extreme']}"
+                            f"<:EasyDemon:1299319586197471253> Easy: {data['platformerDemonsCompleted']['easy']}\n"
+                            f"<:MediumDemon:1299319602936942635> Medium: {data['platformerDemonsCompleted']['medium']}\n"
+                            f"<:HardDemon:1299319619571552318> Hard: {data['platformerDemonsCompleted']['hard']}\n"
+                            f"<:ExtremeDemon:1299319662995046420> Insane: {data['platformerDemonsCompleted']['insane']}\n"
+                            f"<:ExtremeDemon:1299319662995046420> Extreme: {data['platformerDemonsCompleted']['extreme']}"
                         ),
                         inline=False
                     )
@@ -608,7 +610,7 @@ class GeometryDashCommandGroup(app_commands.Group):
                         embed.add_field(name="Social", value=social_links, inline=False)
 
                     embed.set_footer(
-                        text=f"Rank: {data["rank"]} | Requested by {interaction.user}",
+                        text=f"Rank: {"Leaderboard banned" if data["rank"] == 0 else f"Rank: {data['rank']}"} | Requested by {interaction.user}",
                         icon_url=interaction.user.avatar.url
                     )
 
@@ -619,6 +621,7 @@ class GeometryDashCommandGroup(app_commands.Group):
 bot.tree.add_command(GeometryDashCommandGroup())
 
 """
+>>>>>>> Stashed changes
 CLASH ROYALE COMMANDS
 """
 
@@ -728,7 +731,9 @@ class ProfileView(View):
         embed.add_field(name="User", value=f"{name} ({user_id})", inline=False)
         embed.add_field(name="Wins/Losses", value=f"{wins}/{losses} ({winrate:.2f}%)", inline=False)
         embed.add_field(name="<:Trophy:1299093384882950245> Trophy Road", value=f"{trophies}/{max_trophies} ({arena})", inline=False)
-        embed.add_field(name="<:GoblinTrophy:1299093585274343508> Goblin Queen's Journey", value=f"{goblin_trophies}/{max_goblin_trophies} ({goblin_arena})", inline=False)
+        embed.add_field(name="<:Goblin_Trophy:1299093585274343508> Goblin Queen's Journey", value=f"{goblin_trophies}/{max_goblin_trophies} ({goblin_arena})", inline=False)
+        embed.add_field(name="<:Trophy:1299093384882950245> Trophy Road", value=f"{trophies}/{max_trophies} ({arena})", inline=False)
+        embed.add_field(name="<:Goblin_Trophy:1299093585274343508> Goblin Queen's Journey", value=f"{goblin_trophies}/{max_goblin_trophies} ({goblin_arena})", inline=False)
         embed.add_field(name="Clan", value=f"{clan_name} ({clan_tag})", inline=False)
         return embed
 
