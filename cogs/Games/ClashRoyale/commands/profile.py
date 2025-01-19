@@ -1,18 +1,8 @@
-from bot_utils import (
-    open_file,
-    save_file,
-    get_clan_data,
-    get_player_data,
-    handle_logs
-)
-
+import re
 import discord
-from discord.ext import commands
-from discord.ui import View, Button
 from discord import app_commands, ButtonStyle
-
-import asyncio, random, re
-from datetime import datetime, timedelta
+from discord.ui import View, Button
+from bot_utils import open_file, get_player_data, handle_logs
 
 class ProfileView(View):
     def __init__(self, player_data, current_page="main"):
@@ -176,119 +166,40 @@ class ProfileView(View):
             return f"<:{formatted_name}:{emoji_id}>"
         return "❓" 
 
-class ClashRoyaleCommandGroup(app_commands.Group):
-    def __init__(self):
-        super().__init__(name="cr", description="Clash Royale related commands")
-            
-    @app_commands.command(name="connect", description="Connect your Clash Royale profile.")
-    @app_commands.describe(tag="Your player tag")
-    async def crconnect(self, interaction: discord.Interaction, tag: str):
-        await interaction.response.defer()
-        try:
-            if not tag.startswith("#"):
-                tag = f"#{tag}"
 
-            player_data = await get_player_data(tag.replace("#", "%23"))
-            if not player_data:
-                await interaction.followup.send("Failed to retrieve data for the provided player tag.", ephemeral=True)
+@app_commands.command(
+    name="profile", 
+    description="Get Clash Royale player profile data."
+)
+@app_commands.describe(
+    tag="The user's tag (The one with the #).", 
+    user="The user ID of the member."
+)
+async def profile(interaction: discord.Interaction, tag: str = None, user: discord.User = None):
+    await interaction.response.defer()
+    try:
+        member_info = open_file("info/member_info.json")
+
+        if tag is None:
+            user_id = str(user.id) or str(interaction.user.id)
+            cr_id = member_info.get(user_id, {}).get("cr_id")
+
+            if cr_id:
+                tag = cr_id
+            else:
+                await interaction.followup.send("No linked Clash Royale account found.")
                 return
+        else:
+            if not tag.startswith("#"):
+                tag = "#" + tag.strip()
 
-            random_deck = random.sample(["Giant", "Mini P.E.K.K.A", "Fireball", "Archers", "Minions", "Knight", "Musketeer", "Arrows"], k=8)
-            random_deck_str = " ".join(f"`{card}`" for card in random_deck)
-            await interaction.followup.send(
-                f"Please use the following deck: {random_deck_str}\nYou have 15 minutes to make it, which will be checked per minute.\n"
-                "Note that the Clash Royale API can be slow, so response times may vary."
-            )
+        player_data = await get_player_data(tag.replace("#", "%23"))
 
-            end_time = datetime.now() + timedelta(minutes=15)
-            while datetime.now() < end_time:
-                player_data = await get_player_data(tag.replace("#", "%23"))
-                current_deck = player_data.get("currentDeck", [])
-                player_deck_names = [card.get("name", "Unknown") for card in current_deck]
-
-                if sorted(player_deck_names) == sorted(random_deck):
-                    member_info = open_file("info/member_info.json")
-                    discord_user_id = str(interaction.user.id)
-
-                    if discord_user_id not in member_info:
-                        member_info[discord_user_id] = {}
-
-                    member_info[discord_user_id]["cr_id"] = tag
-                    save_file("info/member_info.json", member_info)
-
-                    await interaction.followup.send("Deck matched! Your Clash Royale ID has been successfully linked.")
-                    return
-
-                await asyncio.sleep(60)
-
-            await interaction.followup.send("Deck did not match within 15 minutes. Please try again.")
-        except Exception as e:
-            await handle_logs(interaction, e)
-
-    @app_commands.command(name="profile", description="Get Clash Royale player profile data")
-    @app_commands.describe(tag="The user's tag (The one with the #, optional)", user="The user ID of the member (optional)")
-    async def crprofile(self, interaction: discord.Interaction, tag: str = None, user: discord.User = None):
-        await interaction.response.defer()
-        try:
-            member_info = open_file("info/member_info.json")
-
-            if tag is None:
-                user_id = str(user.id) or str(interaction.user.id)
-                cr_id = member_info.get(user_id, {}).get("cr_id")
-
-                if cr_id:
-                    tag = cr_id
-                else:
-                    await interaction.followup.send("No linked Clash Royale account found.")
-                    return
-            else:
-                if not tag.startswith("#"):
-                    tag = "#" + tag.strip()
-
-            player_data = await get_player_data(tag.replace("#", "%23"))
-
-            if player_data:
-                view = ProfileView(player_data)
-                embed = view.create_main_embed()
-                await interaction.followup.send(embed=embed, view=view)
-            else:
-                await interaction.followup.send(f"Player data not found for tag: {tag}")
-        except Exception as e:
-            await handle_logs(interaction, e)
-
-    @app_commands.command(name="clan", description="Get data about a Clash Royale clan")
-    @app_commands.describe(clantag="The clan's tag (the one with the #)")
-    async def crclan(self, interaction: discord.Interaction, clantag: str):
-        await interaction.response.defer()
-        try:
-            if not clantag.startswith("#"):
-                clantag = "#" + clantag.strip()
-
-            clan_data = await get_clan_data(clantag.replace("#", "%23"))
-
-            if clan_data:
-                embed = discord.Embed(title=f"Clan Data for {clan_data['name']}", color=discord.Color.blue())
-
-                embed.add_field(name="<:Clan:1300957220422549514> Name", value=f"{clan_data['name']} ({clan_data['tag']})")
-                embed.add_field(name="<:Trophy:1299093384882950245> Clan Score", value=clan_data['clanScore'])
-                embed.add_field(name="<:ClanTrophies:1300956037272309850> Clan Trophies", value=clan_data['clanWarTrophies'])
-                embed.add_field(name="<:Trophy:1299093384882950245> Required Trophies", value=clan_data['requiredTrophies'])
-                embed.add_field(name="<:Cards:1300955092534558850> Weekly Donations", value=clan_data['donationsPerWeek'])
-                embed.add_field(name="<:Members:1300956053588152373> Members", value=clan_data['members'])
-                embed.add_field(name="<:Clan:1300957220422549514> Description", value=clan_data['description'])
-                embed.set_footer(text=f"The clan is currently {clan_data['type']} | Requested by {interaction.user.display_name}", icon_url=interaction.user.avatar.url)
-
-                await interaction.followup.send(embed=embed)
-            else:
-                await interaction.followup.send(f"Clan data not found for tag: {clantag}")
-        except Exception as e:
-            await handle_logs(interaction, e)
-
-class ClashRoyaleCog(commands.Cog):
-    def __init__(self, bot):
-        self.bot = bot
-
-        self.bot.tree.add_command(ClashRoyaleCommandGroup())
-
-async def setup(bot):
-    await bot.add_cog(ClashRoyaleCog(bot))
+        if player_data:
+            view = ProfileView(player_data)
+            embed = view.create_main_embed()
+            await interaction.followup.send(embed=embed, view=view)
+        else:
+            await interaction.followup.send(f"Player data not found for tag: {tag}")
+    except Exception as e:
+        await handle_logs(interaction, e)

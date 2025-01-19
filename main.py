@@ -1,4 +1,3 @@
-__version__ = "v2.0.6"
 """
 Major.Release.Push
 
@@ -16,32 +15,31 @@ Made by LucasLiorLE (https://github.com/LucasLiorLE/APEYE)
 
 Release Notes:
     - bot_utils now exists, it's my own package used to manage my own bot.
+    - Prefix commands should now work.
+    - Video and image related commands (check videos and images cog)
+    - EXP system now has a server and client
+        - exp and level commands group
 
-
-This was last updated: 12/14/2024 10:13 AM
+This was last updated: 1/17/2025 8:19 PM
 """
 
 import discord
 from discord.ext import commands
 
-import json, os, re, sys
-import random, time, datetime, math
-import asyncio, asyncpraw
-import traceback
+import os, random, datetime, math, asyncio, asyncpraw
+
 from datetime import datetime, timedelta, timezone
 from dotenv import load_dotenv
 from pathlib import Path
 
 from aiohttp import ClientSession
-
-from typing import List, Union, Optional, Dict, Any
-# from typing_extensions import deprecated
 from ossapi import Ossapi
 
 from bot_utils import (
     open_file,
     save_file,
-    get_player_data
+    get_player_data,
+    __version__
 )
 
 class InvalidKeyError(Exception): ...
@@ -84,24 +82,23 @@ class APEYEBot(commands.Bot):
         self.status_manager = StatusManager(self)
 
     async def setup_hook(self):
-        # import logging
-        # logging.basicConfig(level=logging.INFO)
-        # logger = logging.getLogger('discord')
         try:
             print("Loading cogs...\n-----------------")
             await load_cogs()
             print("-----------------\nCogs loaded successfully.")
-            try:
-                # print("Clearing existing commands...")
-                # for guild in bot.guilds:
-                #     bot.tree.clear_commands(guild=guild)
-                print("Syncing commands...")
-                await bot.tree.sync()
-                print("Commands successfully synced.")
-            except Exception as e:
-                print(f"An error occurred when syncing commands: {e}")
+            
+            # print("Clearing existing commands...")
+            # Clear global commands
+            # self.tree.clear_commands(guild=None)
+            # Clear guild-specific commands
+            # for guild in self.guilds:
+            #     self.tree.clear_commands(guild=guild)
+                
+            print("Syncing commands...")
+            await self.tree.sync()
+            print(f"{len(self.tree.get_commands())} commands successfully synced.")
         except Exception as e:
-            print(f"An error occurred when loading cogs: {e}")
+            print(f"An error occurred during setup: {e}")
         print("Bot is ready.")
 
 bot = APEYEBot()
@@ -126,10 +123,8 @@ async def test_hy_key() -> bool:
             if response.status == 403:
                 data = await response.json()
                 if data.get("success") == False and data.get("cause") == "Invalid API key": 
-                    print("Invalid hypixel API key provided. Please check secrets.env, or possibly expired code?")
                     return False
             elif response.status == 400: # UUID is not provided, therefore it would return 400
-                print("Hypixel API key is valid.")
                 return True
             else:
                 print(f"Request failed with status code: {response.status}")
@@ -207,34 +202,56 @@ async def on_message(message):
         save_file("info/server_info.json", server_info)
 
 async def load_cogs():
-    for filename in os.listdir("./cogs"):
-        if filename.endswith(".py"):
-            try:
-                await bot.load_extension(f"cogs.{filename[:-3]}")
-                print(f"Loaded {filename}")
-            except Exception as e:
-                print(f"Failed to load {filename}: {e}")
+    def find_cogs(directory):
+        cogs = []
+        ignore = ['cr.py']
+        
+        for item in os.listdir(directory):
+            if item in ignore:
+                continue
+                
+            path = os.path.join(directory, item)
+            if os.path.isfile(path) and item.endswith('.py') and item != '__init__.py':
+                module_path = path.replace(os.sep, '.')[2:-3]
+                cogs.append(module_path)
+            elif os.path.isdir(path):
+                init_file = os.path.join(path, '__init__.py')
+                if os.path.exists(init_file):
+                    module_path = path.replace(os.sep, '.')[2:]
+                    cogs.append(module_path)
+                else:
+                    cogs.extend(find_cogs(path))
+        return cogs
+
+    cog_paths = find_cogs('./cogs')
+    cog_paths.sort(key=lambda x: "group" not in x)
+    
+    for cog_path in cog_paths:
+        try:
+            await bot.load_extension(cog_path)
+            print(f"Loaded {cog_path}")
+            # print(f"Current commands: {[cmd.name for cmd in bot.tree.get_commands()]}")
+        except Exception as e:
+            print(f"Failed to load {cog_path}: {e}")
 
 async def check_apis():
     # Check Hypixel API
     if not await test_hy_key():
-        print("Hypixel API check failed")
-        return False
+        raise InvalidKeyError("Invalid hypixel API key provided. Please check secrets.env, or possibly expired code?")
     print("Hypixel API key is valid.")
 
     # Check Clash Royale API
     if not await get_player_data(None):
-        print("Invalid Clash Royale API key. Please check secrets.env.")
-        print("If your key is there, consider checking if your IP is authorized.")
-        return False
+        raise InvalidKeyError("Invalid Clash Royale Key passed. Please check secrets.env\n"
+                              "InvalidKeyError: If your key is there, consider checking if your IP is authorized.")
+    print("Clash Royale key is valid.")
     
     # Check Osu API
     try:
         osu_api = Ossapi(int(osu_api), osu_secret)
         print("Osu API key is valid.")
     except ValueError:
-        print("Invalid API keys; Are you sure you entered your osu api correctly?")
-        return False
+        raise InvalidKeyError("Invalid API keys; Are you sure you entered your osu api correctly?")
 
     # Check Reddit API
     try:
@@ -245,25 +262,24 @@ async def check_apis():
         ) 
         print("Reddit API is valid.")
     except Exception as e:
-        print(f"An error occured when checking reddit API: {e}")
-        print("Are you sure you entered secrets.env correctly?")
-        return False
+        raise InvalidKeyError(f"An error occured when checking reddit API: {e}\n"
+                              "InvalidKeyError: Are you sure you entered secrets.env correctly?")
     
     return True
 
 async def main():
     print("Script loaded.")
-    print(f"Current Version: {__version__}")
+    print(f"Current Version: v{__version__}")
 
-    if not await check_apis():
-        return
+    # if not await check_apis():
+    #     raise InvalidKeyError()
 
     print("The bot is starting, please give it a minute.")
     try:
         await bot.start(token)
     except discord.errors.LoginFailure:
         print("Possible incorrect bot token has been passed. Please check secrets.env, otherwise restart.")
-    except KeyboardInterrupt:
+    except KeyboardInterrupt: # Not needed here
         print("Ctrl + C detected. Shutting down gracefully...")
     except Exception as e:
         print(f"An unexpected error occurred: {e}")
@@ -271,10 +287,12 @@ async def main():
         print("Bot is shutting down. If an error occurs, you can ignore it.")
         await bot.close()
 
-if __name__ == "__main__":
+if __name__ == "__main__": # Not needed anymore, but still here. It was because I imported main in cogs/info.py
     try:
         asyncio.run(main())
     except KeyboardInterrupt:
         print("Keyboard interrupt detected. Shutting down...")
     except Exception as e:
+        print(f"An unexpected error occurred during bot execution: {e}")
+
         print(f"An unexpected error occurred during bot execution: {e}")
